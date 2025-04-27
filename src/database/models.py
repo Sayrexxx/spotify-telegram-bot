@@ -41,3 +41,4 @@ class PlaylistTrack(Base):
     playlist_id = Column(Integer, ForeignKey("playlists.id"), nullable=False)
     track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+    playlist = relationship("Playlist", back_populates="tracks")
