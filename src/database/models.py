@@ -32,7 +32,6 @@ class Playlist(Base):
     name = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     tracks = relationship("PlaylistTrack", back_populates="playlist")
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
 
 class PlaylistTrack(Base):
