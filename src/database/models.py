@@ -28,17 +28,20 @@ class Playlist(Base):
     __tablename__ = "playlists"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     tracks = relationship("PlaylistTrack", back_populates="playlist")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
 
 class PlaylistTrack(Base):
     __tablename__ = "playlist_tracks"
 
     id = Column(Integer, primary_key=True, index=True)
-    playlist_id = Column(Integer, ForeignKey("playlists.id"), nullable=False)
+    playlist_id = Column(
+        Integer, ForeignKey("playlists.id"), nullable=False, index=True
+    )
     track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     playlist = relationship("Playlist", back_populates="tracks")
