@@ -14,7 +14,7 @@ def cache_res(ttl: int = 60) -> Callable:
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapped(*args, **kwargs):
-            key = (func.__name__, args, frozenset(kwargs.items()))
+            key = (func.__qualname__, args, frozenset(kwargs.items()))
             if key in _cache:
                 value, timestamp = _cache[key]
                 if time.time() - timestamp < ttl:
