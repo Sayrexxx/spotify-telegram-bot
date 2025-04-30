@@ -48,8 +48,6 @@ async def main():
     """
     Entrypoint to the bot app.
     """
-    dp.message.register(start_command_handler, Command("start"))
-    dp.message.register(help_command_handler, Command("help"))
 
     logging.info("Бот запущен!")
     await dp.start_polling(bot)
