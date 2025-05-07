@@ -1,9 +1,11 @@
 import logging
 import asyncio
 from aiogram import Bot, Dispatcher
-from aiogram.filters import Command
-from aiogram.types import Message
-from config.settings import TELEGRAM_BOT_TOKEN
+from config.settings import TELEGRAM_BOT_TOKEN, DATABASE_URL
+from src.telegram_bot.database import Database
+from src.telegram_bot.handlers import register_handlers
+from aiogram.dispatcher.middlewares.base import BaseMiddleware
+from aiogram.types.base import TelegramObject
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,41 +18,31 @@ except ValueError as e:
 dp = Dispatcher()
 
 
-@dp.message(Command("start"))
-async def start_command_handler(message: Message):
-    """
-    Handler for /start command.
-    """
-    welcome_text = (
-        f"👋 Привет, {message.from_user.first_name}!\n\n"
-        "Вот что я умею:\n"
-        "- Находить и включать музыку\n"
-        "- Лайкать понравившиеся треки и создавать плейлисты\n\n"
-        "Начните с ввода команды /help, чтобы узнать больше."
-    )
-    await message.answer(welcome_text)
+class DbMiddleware(BaseMiddleware):
+    def __init__(self, db_pool):
+        super().__init__()
+        self.db_pool = db_pool
 
-
-@dp.message(Command("help"))
-async def help_command_handler(message: Message):
-    """
-    Handler for /help command.
-    """
-    help_text = (
-        "📖 <b>Доступные команды:</b>\n"
-        "- /start: Начать работу с ботом\n"
-        "- /help: Показать это сообщение\n\n"
-    )
-    await message.answer(help_text, parse_mode="HTML")
+    async def __call__(self, handler, event: TelegramObject, data: dict):
+        data["db_pool"] = self.db_pool
+        return await handler(event, data)
 
 
 async def main():
     """
     Entrypoint to the bot app.
     """
+    db = Database(DATABASE_URL)
+    await db.connect()
+    dp.update.middleware(DbMiddleware(db))
+    register_handlers(dp)
 
-    logging.info("Бот запущен!")
-    await dp.start_polling(bot)
+    try:
+        logging.info("Бот запущен!")
+        await dp.start_polling(bot)
+    finally:
+        await db.close()
+        await bot.session.close()
 
 
 if __name__ == "__main__":
