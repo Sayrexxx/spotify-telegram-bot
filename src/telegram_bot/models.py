@@ -16,6 +16,18 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.now)
 
 
+class LikedTrack(Base):
+    __tablename__ = "liked_tracks"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False)  # Foreign key reference to User.id
+    track_id = Column(String, nullable=False)
+    track_name = Column(String, nullable=False)
+    artist_name = Column(String, nullable=False)
+    album_name = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+
 async def save_user(db: Database, telegram_id: int, username: str):
     """
     Сохраняет пользователя в базу данных.
@@ -61,3 +73,58 @@ async def is_user_authenticated(db: Database, telegram_id: int) -> bool:
         (telegram_id,),
     )
     return result[0] > 0
+
+
+async def save_liked_track(
+    db: Database,
+    user_id: int,
+    track_id: str,
+    track_name: str,
+    artist_name: str,
+    album_name: str,
+):
+    """
+    Сохраняет лайкнутый трек в базу данных.
+    """
+    existing_track = await db.fetchone(
+        """
+        SELECT id
+        FROM liked_tracks
+        WHERE user_id = ? AND track_id = ?;
+        """,
+        (user_id, track_id),
+    )
+    if existing_track:
+        print(f"Track {track_id} already liked by user {user_id}")
+        return
+
+    print(f"Saving liked track: user_id={user_id}, track_id={track_id}")
+    await db.execute(
+        """
+        INSERT INTO liked_tracks (user_id, track_id, track_name, artist_name, album_name)
+        VALUES (?, ?, ?, ?, ?);
+        """,
+        (user_id, track_id, track_name, artist_name, album_name),
+    )
+
+
+async def get_liked_tracks(db: Database, user_id: int):
+    """
+    Получает все лайкнутые треки пользователя.
+    """
+    liked_tracks = await db.fetchall(
+        """
+        SELECT track_name, artist_name, album_name
+        FROM liked_tracks
+        WHERE user_id = ?;
+        """,
+        (user_id,),
+    )
+    return [
+        {
+            "track_name": track[0],
+            "artist_name": track[1],
+            "album_name": track[2],
+        }
+        for track in liked_tracks
+    ]

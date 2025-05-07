@@ -1,6 +1,6 @@
 import aiosqlite
 import logging
-from src.telegram_bot.sql_scripts import CREATE_USERS_TABLE
+from src.telegram_bot.sql_scripts import CREATE_USERS_TABLE, CREATE_LIKED_TRACKS_TABLE
 from urllib.parse import urlparse
 from typing import Optional
 
@@ -26,6 +26,7 @@ class Database:
             raise RuntimeError("Соединение с базой данных не установлено.")
         async with self.connection.cursor() as cursor:
             await cursor.execute(CREATE_USERS_TABLE)
+            await cursor.execute(CREATE_LIKED_TRACKS_TABLE)
             await self.connection.commit()
             logging.info("Таблицы в базе данных проверены и созданы.")
 
