@@ -1,6 +1,12 @@
 from aiogram.filters import Command, CommandObject
-from aiogram.types import Message
-from src.telegram_bot.models import save_user, is_user_authenticated
+from aiogram.types import Message, InlineKeyboardButton, CallbackQuery
+from aiogram.utils.keyboard import InlineKeyboardMarkup
+from src.telegram_bot.models import (
+    save_user,
+    is_user_authenticated,
+    save_liked_track,
+    get_liked_tracks,
+)
 from src.spotify.client import SpotifyAPI
 
 spotify = SpotifyAPI()
@@ -33,8 +39,9 @@ async def help_command_handler(message: Message):
         "📖 <b>Доступные команды:</b>\n"
         "- /start: Начать работу с ботом\n"
         "- /help: Показать это сообщение\n"
-        "- /auth: Проверка регистрации\n\n"
-        "- /search <тип> <запрос>: Поиск трека, артиста или альбома (например, /search track Imagine Dragons)"
+        "- /auth: Проверка регистрации\n"
+        "- /search тип запрос: Поиск трека, артиста или альбома (например, /search track Imagine Dragons)\n"
+        "- /likes: Показать ваши лайкнутые треки\n\n"
     )
     await message.answer(help_text, parse_mode="HTML")
 
@@ -54,9 +61,10 @@ async def auth_command_handler(message: Message, db_pool):
         )
 
 
-async def search_command_handler(message: Message, command: CommandObject):
+async def search_command_handler(message: Message, command: CommandObject, db_pool):
     """
     Handler for /search command. Finds track, artist and album names in Spotify.
+    Sends each track as a separate message with a "Like" button.
     """
     if not command.args:
         await message.reply(
@@ -89,22 +97,94 @@ async def search_command_handler(message: Message, command: CommandObject):
         await message.reply("Ничего не найдено. Попробуйте изменить запрос.")
         return
 
-    response = f"Вот лучшие результаты поиска ({search_type}):\n\n"
     for idx, item in enumerate(items, start=1):
         if search_type == "track":
-            name = item.get("name", "Unknown Track")
+            track_id = item.get("id", "Unknown ID")
+            track_name = item.get("name", "Unknown Track")
             artists = ", ".join(artist["name"] for artist in item.get("artists", []))
             album_name = item.get("album", {}).get("name", "Unknown Album")
-            response += f"{idx}. **{name}**\n   - Исполнитель(и): {artists}\n   - Альбом: {album_name}\n\n"
+
+            response = (
+                f"{idx}. **{track_name}**\n"
+                f"   - Исполнитель(и): {artists}\n"
+                f"   - Альбом: {album_name}\n"
+            )
+
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=f"❤️ Лайк: {track_name}",
+                            callback_data=f"like:{track_id}",
+                        )
+                    ]
+                ]
+            )
+
+            await message.answer(response, reply_markup=keyboard, parse_mode="Markdown")
         elif search_type == "artist":
             name = item.get("name", "Unknown Artist")
             genres = ", ".join(item.get("genres", []))
-            response += f"{idx}. **{name}**\n   - Жанры: {genres or 'Не указаны'}\n\n"
+            response = f"{idx}. **{name}**\n   - Жанры: {genres or 'Не указаны'}\n\n"
+            await message.answer(response, parse_mode="Markdown")
         elif search_type == "album":
             name = item.get("name", "Unknown Album")
             artists = ", ".join(artist["name"] for artist in item.get("artists", []))
             release_date = item.get("release_date", "Unknown Date")
-            response += f"{idx}. **{name}**\n   - Исполнитель(и): {artists}\n   - Дата релиза: {release_date}\n\n"
+            response = (
+                f"{idx}. **{name}**\n"
+                f"   - Исполнитель(и): {artists}\n"
+                f"   - Дата релиза: {release_date}\n"
+            )
+            await message.answer(response, parse_mode="Markdown")
+
+
+async def like_track_callback_handler(callback_query: CallbackQuery, db_pool):
+    """
+    Handler for liking a track via inline button.
+    """
+    data = callback_query.data
+    if not data.startswith("like:"):
+        await callback_query.answer("Неверный формат действия.", show_alert=True)
+        return
+
+    _, track_id = data.split(":", 1)
+    user_id = callback_query.from_user.id
+
+    try:
+        track = spotify.get_track(track_id)
+        track_name = track.get("name", "Unknown Track")
+        artists = ", ".join(artist["name"] for artist in track.get("artists", []))
+        album_name = track.get("album", {}).get("name", "Unknown Album")
+
+        await save_liked_track(
+            db_pool, user_id, track_id, track_name, artists, album_name
+        )
+        await callback_query.answer(
+            f"Трек '{track_name}' добавлен в ваши лайки!", show_alert=True
+        )
+    except Exception as e:
+        await callback_query.answer(
+            f"Ошибка при добавлении трека: {e}", show_alert=True
+        )
+
+
+async def likes_command_handler(message: Message, db_pool):
+    """
+    Handler for /likes command. Displays the user's liked tracks.
+    """
+    user_id = message.from_user.id
+    liked_tracks = await get_liked_tracks(db_pool, user_id)
+
+    if not liked_tracks:
+        await message.reply(
+            "У вас пока нет лайкнутых треков. Начните с команды /search и лайкните понравившиеся треки!"
+        )
+        return
+
+    response = "Ваши лайкнутые треки:\n\n"
+    for idx, track in enumerate(liked_tracks, start=1):
+        response += f"{idx}. **{track['track_name']}**\n   - Исполнитель(и): {track['artist_name']}\n   - Альбом: {track['album_name']}\n\n"
 
     await message.reply(response, parse_mode="Markdown")
 
@@ -114,3 +194,7 @@ def register_handlers(dp):
     dp.message.register(help_command_handler, Command("help"))
     dp.message.register(auth_command_handler, Command("auth"))
     dp.message.register(search_command_handler, Command("search"))
+    dp.message.register(likes_command_handler, Command("likes"))
+    dp.callback_query.register(
+        like_track_callback_handler, lambda call: call.data.startswith("like:")
+    )

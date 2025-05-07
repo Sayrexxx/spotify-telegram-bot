@@ -11,6 +11,7 @@ class SpotifyAPI:
 
     TOKEN_URL = "https://accounts.spotify.com/api/token"
     SEARCH_URL = "https://api.spotify.com/v1/search"
+    TRACK_URL = "https://api.spotify.com/v1/tracks"
 
     def __init__(self):
         self.token = self.get_access_token()
@@ -41,6 +42,18 @@ class SpotifyAPI:
         headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.get(self.SEARCH_URL, headers=headers, params=params)
         response.raise_for_status()
+        return response.json()
+
+    def get_track(self, track_id):
+        """
+        Fetches information about a specific track by its track_id.
+        - track_id: The Spotify ID of the track.
+        """
+        url = f"{self.TRACK_URL}/{track_id}"
+        headers = {"Authorization": f"Bearer {self.token}"}
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+
         return response.json()
 
 
