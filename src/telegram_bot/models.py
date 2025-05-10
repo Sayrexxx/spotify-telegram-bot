@@ -1,5 +1,5 @@
 from src.telegram_bot.database import Database
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 from typing import Any
@@ -26,6 +26,28 @@ class LikedTrack(Base):
     artist_name = Column(String, nullable=False)
     album_name = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
+
+
+class Playlist(Base):
+    __tablename__ = "playlists"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at = Column(DateTime, default=datetime.now())
+
+
+class PlaylistTrack(Base):
+    __tablename__ = "playlist_tracks"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    playlist_id = Column(
+        Integer, ForeignKey("playlists.id", ondelete="CASCADE"), nullable=False
+    )
+    track_id = Column(String, nullable=False)
+    added_at = Column(DateTime, default=datetime.now)
 
 
 async def save_user(db: Database, telegram_id: int, username: str):
@@ -111,6 +133,94 @@ async def save_liked_track(
 async def get_liked_tracks(db: Database, user_id: int):
     """
     Получает все лайкнутые треки пользователя.
+    """
+    liked_tracks = await db.fetchall(
+        """
+        SELECT track_name, artist_name, album_name
+        FROM liked_tracks
+        WHERE user_id = ?;
+        """,
+        (user_id,),
+    )
+    return [
+        {
+            "track_name": track[0],
+            "artist_name": track[1],
+            "album_name": track[2],
+        }
+        for track in liked_tracks
+    ]
+
+
+async def save_playlist(db: Database, user_id: int, playlist_name: str):
+    """
+    Сохраняет плейлист в базу данных.
+    """
+    existing_playlist = await db.fetchone(
+        """
+        SELECT id
+        FROM playlists
+        WHERE user_id = ? AND name = ?;
+        """,
+        (user_id, playlist_name),
+    )
+    if existing_playlist:
+        print(f"Playlist '{playlist_name}' already exists for user {user_id}")
+        return
+
+    print(f"Saving playlist: user_id={user_id}, playlist_name={playlist_name}")
+    await db.execute(
+        """
+        INSERT INTO playlists (user_id, name, created_at)
+        VALUES (?, ?, ?);
+        """,
+        (user_id, playlist_name, datetime.now()),
+    )
+
+
+async def add_track_to_playlist(db: Database, playlist_id: int, track_id: str):
+    """
+    Добавляет трек в указанный плейлист.
+    """
+    existing_track = await db.fetchone(
+        """
+        SELECT id
+        FROM playlist_tracks
+        WHERE playlist_id = ? AND track_id = ?;
+        """,
+        (playlist_id, track_id),
+    )
+    if existing_track:
+        print(f"Track {track_id} already exists in playlist {playlist_id}")
+        return
+
+    print(f"Adding track {track_id} to playlist {playlist_id}")
+    await db.execute(
+        """
+        INSERT INTO playlist_tracks (playlist_id, track_id, added_at)
+        VALUES (?, ?, ?);
+        """,
+        (playlist_id, track_id, datetime.now()),
+    )
+
+
+async def remove_track_from_playlist(db: Database, playlist_id: int, track_id: str):
+    """
+    Удаляет трек из указанного плейлиста.
+    """
+    print(f"Removing track {track_id} from playlist {playlist_id}")
+    await db.execute(
+        """
+        DELETE FROM playlist_tracks
+        WHERE playlist_id = ? AND track_id = ?;
+        """,
+        (playlist_id, track_id),
+    )
+
+
+async def get_playlist(db: Database, user_id: int):
+    """
+    Получает все треки конкретного плейлиста.
     """
     liked_tracks = await db.fetchall(
         """
