@@ -160,7 +160,7 @@ async def remove_from_playlist_handler(message: Message, db_pool):
 async def view_playlists_handler(message: Message, db_pool):
     """
     Handler for /playlists command.
-    Shows list of playlist in separated messages with button to show all playlist`s tracks.
+    Shows list of playlists in separated messages with a button to show all playlist's tracks.
     """
     user_id = message.from_user.id
 
