@@ -18,3 +18,25 @@ CREATE TABLE IF NOT EXISTS liked_tracks (
     UNIQUE(user_id, track_id)
 );
 """
+
+CREATE_PLAYLISTS_TABLE = """
+CREATE TABLE IF NOT EXISTS playlists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    UNIQUE(user_id, name)
+);
+"""
+
+CREATE_PLAYLIST_TRACKS_TABLE = """
+CREATE TABLE IF NOT EXISTS playlist_tracks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    playlist_id INTEGER NOT NULL,
+    track_id TEXT NOT NULL,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (playlist_id) REFERENCES playlists (id) ON DELETE CASCADE,
+    UNIQUE(playlist_id, track_id)
+);
+"""

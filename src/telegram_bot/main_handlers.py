@@ -41,7 +41,13 @@ async def help_command_handler(message: Message):
         "- /help: Показать это сообщение\n"
         "- /auth: Проверка регистрации\n"
         "- /search тип запрос: Поиск трека, артиста или альбома (например, /search track Imagine Dragons)\n"
-        "- /likes: Показать ваши лайкнутые треки\n\n"
+        "- /likes: Показать ваши лайкнутые треки\n"
+        "- /create_playlist название: Создать новый плейлист\n"
+        "- /rename_playlist старое_название новое_название: Переименовать существующий плейлист\n"
+        "- /delete_playlist название: Удалить плейлист\n"
+        "- /add_to_playlist название_плейлиста track_id: Добавить трек в плейлист\n"
+        "- /remove_from_playlist название_плейлиста track_id: Удалить трек из плейлиста\n"
+        "- /playlists: Показать все ваши плейлисты (каждый плейлист — отдельным сообщением с кнопкой для просмотра содержимого)\n\n"
     )
     await message.answer(help_text, parse_mode="HTML")
 
@@ -189,7 +195,7 @@ async def likes_command_handler(message: Message, db_pool):
     await message.reply(response, parse_mode="Markdown")
 
 
-def register_handlers(dp):
+def register_main_handlers(dp):
     dp.message.register(start_command_handler, Command("start"))
     dp.message.register(help_command_handler, Command("help"))
     dp.message.register(auth_command_handler, Command("auth"))
