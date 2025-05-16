@@ -218,23 +218,56 @@ async def remove_track_from_playlist(db: Database, playlist_id: int, track_id: s
     )
 
 
-async def get_playlist(db: Database, user_id: int):
+async def get_user_playlists(db: Database, user_id: int):
     """
-    Получает все треки конкретного плейлиста.
+    Получает все плейлисты пользователя.
     """
-    liked_tracks = await db.fetchall(
+    rows = await db.fetchall(
         """
-        SELECT track_name, artist_name, album_name
-        FROM liked_tracks
-        WHERE user_id = ?;
+        SELECT id, name FROM playlists WHERE user_id = ? ORDER BY created_at DESC;
         """,
         (user_id,),
     )
-    return [
-        {
-            "track_name": track[0],
-            "artist_name": track[1],
-            "album_name": track[2],
-        }
-        for track in liked_tracks
-    ]
+    return [{"id": r[0], "name": r[1]} for r in rows]
+
+
+async def get_playlist_tracks(db: Database, playlist_id: int):
+    """
+    Получает все треки для конкретного плейлиста.
+    """
+    rows = await db.fetchall(
+        """
+        SELECT track_id FROM playlist_tracks WHERE playlist_id = ?;
+        """,
+        (playlist_id,),
+    )
+    return [{"track_id": r[0]} for r in rows]
+
+
+async def get_playlist_name(db: Database, playlist_id: int):
+    """
+    Получает название плейлиста по его id.
+    """
+    row = await db.fetchone(
+        """
+        SELECT name FROM playlists WHERE id = ?;
+        """,
+        (playlist_id,),
+    )
+    return row[0] if row else None
+
+
+async def get_full_playlist_tracks(db: Database, playlist_id: int):
+    """
+    Получает полную информацию о треках плейлиста.
+    """
+    rows = await db.fetchall(
+        """
+        SELECT lt.track_name, lt.artist_name, lt.album_name
+        FROM playlist_tracks pt
+        JOIN liked_tracks lt ON pt.track_id = lt.track_id
+        WHERE pt.playlist_id = ?;
+        """,
+        (playlist_id,),
+    )
+    return [{"track_name": r[0], "artist_name": r[1], "album_name": r[2]} for r in rows]

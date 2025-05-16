@@ -46,7 +46,8 @@ async def help_command_handler(message: Message):
         "- /rename_playlist старое_название новое_название: Переименовать существующий плейлист\n"
         "- /delete_playlist название: Удалить плейлист\n"
         "- /add_to_playlist название_плейлиста track_id: Добавить трек в плейлист\n"
-        "- /remove_from_playlist название_плейлиста track_id: Удалить трек из плейлиста\n\n"
+        "- /remove_from_playlist название_плейлиста track_id: Удалить трек из плейлиста\n"
+        "- /playlists: Показать все ваши плейлисты (каждый плейлист — отдельным сообщением с кнопкой для просмотра содержимого)\n\n"
     )
     await message.answer(help_text, parse_mode="HTML")
 

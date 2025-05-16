@@ -1,10 +1,14 @@
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
 from src.telegram_bot.models import (
     save_playlist,
     add_track_to_playlist,
     remove_track_from_playlist,
+    get_user_playlists,
+    get_full_playlist_tracks,
+    get_playlist_name,
 )
+from aiogram.utils.keyboard import InlineKeyboardMarkup
 
 
 async def create_playlist_handler(message: Message, db_pool):
@@ -153,46 +157,64 @@ async def remove_from_playlist_handler(message: Message, db_pool):
         await message.reply(f"❌ Ошибка при удалении трека из плейлиста: {e}")
 
 
-async def get_playlist_handler(message: Message, db_pool):
+async def view_playlists_handler(message: Message, db_pool):
     """
-    Handler for /get_playlist command.
+    Handler for /playlists command.
+    Shows list of playlist in separated messages with button to show all playlist`s tracks.
     """
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
+    user_id = message.from_user.id
+
+    playlists = await get_user_playlists(db_pool, user_id)
+
+    if not playlists:
         await message.reply(
-            "Пожалуйста, укажите название плейлиста. Пример: /create_playlist Мой Плейлист"
+            "У вас пока нет плейлистов. Создайте их через /create_playlist!"
         )
         return
 
-    playlist_name = args[1]
-    user_id = message.from_user.id
-
-    try:
-        await save_playlist(db_pool, user_id, playlist_name)
-        await message.reply(f"✅ Плейлист '{playlist_name}' создан успешно!")
-    except Exception as e:
-        await message.reply(f"❌ Ошибка при создании плейлиста: {e}")
-
-
-async def get_all_playlists_handler(message: Message, db_pool):
-    """
-    Handler for /get_all_playlists command.
-    """
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.reply(
-            "Пожалуйста, укажите название плейлиста. Пример: /create_playlist Мой Плейлист"
+    for pl in playlists:
+        pl_id, pl_name = pl["id"], pl["name"]
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="Просмотреть плейлист",
+                        callback_data=f"show_playlist:{pl_id}",
+                    )
+                ]
+            ]
         )
+        await message.answer(
+            f"🎵 <b>{pl_name}</b>", reply_markup=keyboard, parse_mode="HTML"
+        )
+
+
+async def show_playlist_callback_handler(callback_query: CallbackQuery, db_pool):
+    data = callback_query.data
+    if not data.startswith("show_playlist:"):
+        await callback_query.answer("Неверный формат запроса.", show_alert=True)
         return
 
-    playlist_name = args[1]
-    user_id = message.from_user.id
+    playlist_id = int(data.split(":", 1)[1])
+    pl_name = await get_playlist_name(db_pool, playlist_id)
+    if not pl_name:
+        pl_name = "Неизвестный плейлист"
 
-    try:
-        await save_playlist(db_pool, user_id, playlist_name)
-        await message.reply(f"✅ Плейлист '{playlist_name}' создан успешно!")
-    except Exception as e:
-        await message.reply(f"❌ Ошибка при создании плейлиста: {e}")
+    tracks = await get_full_playlist_tracks(db_pool, playlist_id)
+    if not tracks:
+        await callback_query.message.answer(
+            f"Плейлист <b>{pl_name}</b> пуст.", parse_mode="HTML"
+        )
+    else:
+        text = f"🎼 <b>{pl_name}</b>\nТреки:\n"
+        for idx, track in enumerate(tracks, 1):
+            text += (
+                f"{idx}. {track['track_name']}\n"
+                f"   - Исполнитель(и): {track['artist_name']}\n"
+                f"   - Альбом: {track['album_name']}\n\n"
+            )
+        await callback_query.message.answer(text, parse_mode="HTML")
+    await callback_query.answer()
 
 
 def register_playlist_handlers(dp):
@@ -201,5 +223,7 @@ def register_playlist_handlers(dp):
     dp.message.register(delete_playlist_handler, Command("delete_playlist"))
     dp.message.register(add_to_playlist_handler, Command("add_to_playlist"))
     dp.message.register(remove_from_playlist_handler, Command("remove_from_playlist"))
-    dp.message.register(get_playlist_handler, Command("get_playlist"))
-    dp.message.register(get_all_playlists_handler, Command("get_all_playlists"))
+    dp.message.register(view_playlists_handler, Command("playlists"))
+    dp.callback_query.register(
+        show_playlist_callback_handler, lambda c: c.data.startswith("show_playlist:")
+    )
