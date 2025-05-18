@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher
 from config.settings import TELEGRAM_BOT_TOKEN, DATABASE_URL
 from src.telegram_bot.database import Database
 from src.telegram_bot.main_handlers import register_main_handlers
+from src.telegram_bot.playback_handlers import register_playback_handlers
 from src.telegram_bot.playlist_handlers import register_playlist_handlers
 from aiogram.dispatcher.middlewares.base import BaseMiddleware
 from aiogram.types.base import TelegramObject
@@ -38,6 +39,7 @@ async def main():
     dp.update.middleware(DbMiddleware(db))
     register_main_handlers(dp)
     register_playlist_handlers(dp)
+    register_playback_handlers(dp)
 
     try:
         logging.info("Бот запущен!")
