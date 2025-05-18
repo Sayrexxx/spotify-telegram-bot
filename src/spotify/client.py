@@ -56,6 +56,31 @@ class SpotifyAPI:
 
         return response.json()
 
+    @staticmethod
+    def get_audio_preview_url(response: dict) -> str:
+        """
+        Fetches link to audiofile (audio_preview_url) from `episodes` block in callback Spotify API answer.
+
+        :param response: JSON Spotify API .
+        :return: Link to audiofile or error message.
+        """
+        try:
+            episodes = response.get("episodes", {})
+            items = episodes.get("items", [])
+
+            if not items:
+                return "❌ Нет доступных эпизодов с предпрослушиванием."
+
+            first_episode = items[0]
+            audio_preview_url = first_episode.get("audio_preview_url")
+
+            if audio_preview_url:
+                return audio_preview_url
+            else:
+                return "❌ У данного эпизода нет доступного предпрослушивания."
+        except Exception as e:
+            return f"❌ Произошла ошибка: {str(e)}"
+
 
 if __name__ == "__main__":
     spotify = SpotifyAPI()

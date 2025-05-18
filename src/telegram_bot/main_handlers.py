@@ -47,7 +47,8 @@ async def help_command_handler(message: Message):
         "- /delete_playlist название: Удалить плейлист\n"
         "- /add_to_playlist название_плейлиста track_id: Добавить трек в плейлист\n"
         "- /remove_from_playlist название_плейлиста track_id: Удалить трек из плейлиста\n"
-        "- /playlists: Показать все ваши плейлисты (каждый плейлист — отдельным сообщением с кнопкой для просмотра содержимого)\n\n"
+        "- /playlists: Показать все ваши плейлисты (каждый плейлист — отдельным сообщением с кнопкой для просмотра содержимого)\n"
+        "- /play track_name_or_id: Предоставить 30-секундный фрагмент аудиофайла указанного трека из Spotify\n\n"
     )
     await message.answer(help_text, parse_mode="HTML")
 
